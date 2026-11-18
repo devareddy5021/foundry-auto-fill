@@ -1,0 +1,222 @@
+/* ============================================================
+   Foundry Auto-Filler In-Page Styles
+   Scoped classes to prevent conflicting with website styling
+   ============================================================ */
+
+/* Floating trigger pill */
+.foundry-floating-btn {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  z-index: 2147483646 !important;
+  background: linear-gradient(135deg, #e05638, #c44024) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 28px !important;
+  padding: 10px 18px !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  cursor: pointer !important;
+  box-shadow: 0 4px 18px rgba(224, 86, 56, 0.4), 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+  outline: none !important;
+}
+
+.foundry-floating-btn:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 24px rgba(224, 86, 56, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4) !important;
+}
+
+.foundry-floating-btn:active {
+  transform: translateY(0) scale(0.98) !important;
+}
+
+/* In-page Slide-out / Modal Drawer */
+.foundry-drawer {
+  position: fixed !important;
+  bottom: 74px !important;
+  right: 24px !important;
+  width: 440px !important;
+  max-width: calc(100vw - 48px) !important;
+  max-height: calc(100vh - 120px) !important;
+  background: #18181b !important;
+  color: #f4f4f5 !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 14px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.05) !important;
+  z-index: 2147483647 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+.foundry-drawer-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transform: translateY(12px) scale(0.98) !important;
+  display: none !important;
+}
+
+/* Header */
+.foundry-drawer-header {
+  padding: 14px 18px !important;
+  background: #27272a !important;
+  border-bottom: 1px solid #3f3f46 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+.foundry-drawer-title {
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: #f4f4f5 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.foundry-icon {
+  font-size: 16px !important;
+}
+
+.foundry-close-btn {
+  background: transparent !important;
+  border: none !important;
+  color: #a1a1aa !important;
+  font-size: 20px !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  padding: 2px 6px !important;
+  border-radius: 4px !important;
+  transition: color 0.15s, background 0.15s !important;
+}
+
+.foundry-close-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Body */
+.foundry-drawer-body {
+  padding: 16px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 12px !important;
+  overflow-y: auto !important;
+  max-height: 600px !important;
+}
+
+.foundry-hint {
+  font-size: 12px !important;
+  color: #a1a1aa !important;
+}
+
+.foundry-textarea {
+  width: 100% !important;
+  height: 170px !important;
+  background: #09090b !important;
+  border: 1px solid #3f3f46 !important;
+  border-radius: 8px !important;
+  color: #e4e4e7 !important;
+  font-size: 11px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  padding: 10px !important;
+  box-sizing: border-box !important;
+  resize: vertical !important;
+  outline: none !important;
+  transition: border-color 0.15s ease !important;
+}
+
+.foundry-textarea:focus {
+  border-color: #e05638 !important;
+}
+
+/* Checkbox row */
+.foundry-checkbox-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  font-size: 11px !important;
+  color: #d4d4d8 !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  background: #27272a !important;
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid #3f3f46 !important;
+}
+
+.foundry-checkbox-row input[type="checkbox"] {
+  accent-color: #e05638 !important;
+  width: 15px !important;
+  height: 15px !important;
+  cursor: pointer !important;
+}
+
+/* Button Row */
+.foundry-btn-row {
+  display: flex !important;
+  gap: 10px !important;
+}
+
+.foundry-btn {
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 10px 14px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: background 0.15s ease, opacity 0.15s ease !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 6px !important;
+}
+
+.foundry-btn-secondary {
+  flex: 1 !important;
+  background: #3f3f46 !important;
+  color: #f4f4f5 !important;
+  font-weight: 500 !important;
+}
+
+.foundry-btn-secondary:hover {
+  background: #52525b !important;
+}
+
+.foundry-btn-primary {
+  flex: 2 !important;
+  background: #e05638 !important;
+  color: #ffffff !important;
+  font-weight: 600 !important;
+}
+
+.foundry-btn-primary:hover {
+  background: #c44024 !important;
+}
+
+.foundry-btn:disabled {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+/* Log output */
+.foundry-log {
+  font-size: 11px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace !important;
+  background: #09090b !important;
+  border: 1px solid #27272a !important;
+  border-radius: 8px !important;
+  padding: 10px !important;
+  max-height: 110px !important;
+  overflow-y: auto !important;
+  color: #a1a1aa !important;
+  white-space: pre-wrap !important;
+  line-height: 1.4 !important;
+}

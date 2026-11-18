@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Foundry Auto-Filler</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="header">
+      <div class="title-group">
+        <span class="icon">⚡</span>
+        <h1>Foundry Auto-Filler</h1>
+      </div>
+      <span class="badge">v1.2</span>
+    </header>
+
+    <main class="content">
+      <label for="answers-input" class="label">Paste Evaluation Answers (Turn 1 to 7):</label>
+      <textarea id="answers-input" placeholder="File: s0_0317.wav&#10;TURN 1&#10;Content: 5/5&#10;Error Code: None&#10;Justification: The agent acknowledges...&#10;Prosody: 4/5..."></textarea>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="fill-just-checkbox" checked>
+        <span>Fill Justifications (Auto-fill all textareas)</span>
+      </label>
+
+      <div class="button-group">
+        <button id="paste-btn" class="btn btn-secondary">📋 Paste Clipboard</button>
+        <button id="clear-btn" class="btn btn-secondary">🗑 Clear</button>
+      </div>
+
+      <button id="fill-btn" class="btn btn-primary">⚡ Fill Current Page</button>
+
+      <div class="log-container">
+        <div class="log-header">Live Progress</div>
+        <div id="log-output" class="log-output">Ready. Paste text above and click Fill Current Page.</div>
+      </div>
+    </main>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
