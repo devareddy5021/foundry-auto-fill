@@ -6,6 +6,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const inputEl = document.getElementById("answers-input");
   const fillJustCheckbox = document.getElementById("fill-just-checkbox");
+  const showFloatingBtnCheckbox = document.getElementById("show-floating-btn-checkbox");
   const fillBtn = document.getElementById("fill-btn");
   const pasteBtn = document.getElementById("paste-btn");
   const clearBtn = document.getElementById("clear-btn");
@@ -20,19 +21,22 @@ document.addEventListener("DOMContentLoaded", () => {
     logEl.textContent = msg;
   };
 
-  // Restore previous text & checkbox preference from storage
+  // Restore previous text & checkbox preferences from storage
   if (chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(["lastAnswersText", "fillJustifications"], (res) => {
+    chrome.storage.local.get(["lastAnswersText", "fillJustifications", "showFloatingButton"], (res) => {
       if (res) {
         if (res.lastAnswersText) inputEl.value = res.lastAnswersText;
-        // Default to true (checked) because "justification is main"
         fillJustCheckbox.checked = res.fillJustifications !== false;
+        // Floating button is OFF (false) by default
+        showFloatingBtnCheckbox.checked = res.showFloatingButton === true;
       } else {
         fillJustCheckbox.checked = true;
+        showFloatingBtnCheckbox.checked = false;
       }
     });
   } else {
     fillJustCheckbox.checked = true;
+    showFloatingBtnCheckbox.checked = false;
   }
 
   // Save changes to storage
@@ -46,6 +50,21 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chrome.storage && chrome.storage.local) {
       chrome.storage.local.set({ fillJustifications: fillJustCheckbox.checked });
     }
+  });
+
+  // Toggle floating button visibility
+  showFloatingBtnCheckbox.addEventListener("change", async () => {
+    const isChecked = showFloatingBtnCheckbox.checked;
+    if (chrome.storage && chrome.storage.local) {
+      chrome.storage.local.set({ showFloatingButton: isChecked });
+    }
+    // Notify active tab
+    try {
+      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tab && tab.id) {
+        chrome.tabs.sendMessage(tab.id, { action: "TOGGLE_FLOATING_BUTTON", show: isChecked });
+      }
+    } catch (e) {}
   });
 
   // Paste from clipboard
@@ -112,7 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
           if (chrome.runtime.lastError) {
             setLog(
               "❌ Could not connect to page.\n" +
-              "Please REFRESH your Foundry tab once after installing the extension, then try again!"
+              "Please REFRESH your Foundry tab once after installing/updating the extension, then try again!"
             );
             return;
           }

@@ -31,13 +31,11 @@
       const block = text.slice(current.startIndex, nextStart);
 
       function extractSection(cat) {
-        // Find where this category starts
         const catRegex = new RegExp("(?:^|\\r?\\n)\\s*" + cat + "\\s*:", "i");
         const catMatch = block.match(catRegex);
         if (!catMatch) return null;
 
         const catStart = catMatch.index;
-        // Find where the next category begins or end of turn
         const nextCatsRegex = /(?:^|\r?\n)\s*(?:Content|Prosody|Fluidity)\s*:/gi;
         nextCatsRegex.lastIndex = catStart + catMatch[0].length;
         const nextMatch = nextCatsRegex.exec(block);
@@ -50,7 +48,7 @@
         const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 5;
 
         // Error Code
-        const errMatch = sectionText.match(/Error\s*Code\s*:\s*([^\n\r]+)/i);
+        const errMatch = sectionText.match(/Error\\s*Code\\s*:\\s*([^\\n\\r]+)/i);
         let err = errMatch ? errMatch[1].trim() : "";
         if (err.toLowerCase() === "none") err = "";
 
@@ -298,7 +296,7 @@
   }
 
   // ----------------------------------------------------------
-  // 7. Complete Automation Execution (Fills Justifications by default!)
+  // 7. Complete Automation Execution (Fills Justifications)
   // ----------------------------------------------------------
   async function fillAllTurns(text, fillJustifications = true, logFn = console.log) {
     logFn("Parsing text answers...");
@@ -309,11 +307,6 @@
       return { success: false, error: err };
     }
     logFn(`✓ Found ${turns.length} turns in text.`);
-    if (fillJustifications) {
-      logFn("📝 Justifications: ENABLED (filling all textareas).");
-    } else {
-      logFn("ℹ️ Justifications: SKIPPED (scores & error codes only).");
-    }
 
     // If an EXPAND ALL button exists, trigger it
     const expandBtn = Array.from(
@@ -413,20 +406,35 @@
         sendResponse({ success: false, error: err.message });
       });
       return true;
+    } else if (request.action === "TOGGLE_FLOATING_BUTTON") {
+      updateFloatingButtonVisibility(request.show);
+      sendResponse({ success: true });
     }
   });
 
   // ----------------------------------------------------------
-  // 9. In-Page Floating Button & Drawer UI
+  // 9. In-Page Floating Button & Drawer UI (OFF by default)
   // ----------------------------------------------------------
+  function removeInPageUI() {
+    const trigger = document.getElementById("foundry-floating-trigger");
+    if (trigger) trigger.remove();
+    const drawer = document.getElementById("foundry-inpage-drawer");
+    if (drawer) drawer.remove();
+  }
+
   function injectInPageUI() {
     if (document.getElementById("foundry-floating-trigger")) return;
 
     // Floating pill trigger button on bottom-right of the screen
-    const trigger = document.createElement("button");
+    const trigger = document.createElement("div");
     trigger.id = "foundry-floating-trigger";
-    trigger.className = "foundry-floating-btn";
-    trigger.innerHTML = `<span>⚡</span> Auto-Fill`;
+    trigger.className = "foundry-floating-btn-container";
+    trigger.innerHTML = `
+      <button id="foundry-main-pill" class="foundry-floating-btn">
+        <span>⚡</span> Auto-Fill
+      </button>
+      <button id="foundry-hide-pill" class="foundry-hide-pill-btn" title="Hide floating button">×</button>
+    `;
     document.body.appendChild(trigger);
 
     // Floating slide-out panel
@@ -467,15 +475,22 @@
 
     const justCheckbox = document.getElementById("foundry-drawer-fill-just");
     const savedPref = localStorage.getItem("foundry_fill_justifications");
-    // Default to true (checked) because "justification is main"!
     justCheckbox.checked = savedPref !== "false";
 
     justCheckbox.addEventListener("change", () => {
       localStorage.setItem("foundry_fill_justifications", justCheckbox.checked ? "true" : "false");
     });
 
-    trigger.onclick = () => {
+    document.getElementById("foundry-main-pill").onclick = () => {
       drawer.classList.toggle("foundry-drawer-hidden");
+    };
+
+    document.getElementById("foundry-hide-pill").onclick = (e) => {
+      e.stopPropagation();
+      removeInPageUI();
+      if (chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ showFloatingButton: false });
+      }
     };
 
     document.getElementById("foundry-drawer-close").onclick = () => {
@@ -513,10 +528,24 @@
     };
   }
 
-  // Inject UI once DOM is ready
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", injectInPageUI);
-  } else {
-    injectInPageUI();
+  function updateFloatingButtonVisibility(show) {
+    if (show) {
+      injectInPageUI();
+    } else {
+      removeInPageUI();
+    }
+  }
+
+  // Check user preference on load: default is FALSE (OFF)!
+  if (chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(["showFloatingButton"], (res) => {
+      if (res && res.showFloatingButton === true) {
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", injectInPageUI);
+        } else {
+          injectInPageUI();
+        }
+      }
+    });
   }
 })();
