@@ -75,9 +75,12 @@
 
     <!-- TAB 3: Settings -->
     <div id="settings-tab" class="tab-pane">
-      <label class="label" for="api-key-input">Gemini API Key:</label>
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <label class="label" for="api-key-input">Gemini API Key:</label>
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" class="link-btn" style="text-decoration:none;">Get Free Key ↗</a>
+      </div>
       <div class="api-key-row">
-        <input type="password" id="api-key-input" placeholder="Enter Gemini API Key">
+        <input type="text" id="api-key-input" placeholder="Paste your Gemini API Key here">
         <button id="test-key-btn" class="btn btn-secondary btn-sm">Verify</button>
       </div>
 

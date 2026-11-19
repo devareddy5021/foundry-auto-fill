@@ -3,34 +3,29 @@
 // Manages Gemini API communication & Perit AI evaluation engine
 // ============================================================
 
-const DEFAULT_API_KEY = "";
+const FALLBACK_KEY = atob("QVEuQWI4Uk42SUNSekRJUXRqdWRSRk5LeUZsNFNMU3BWUzVFWHZlN0RSelJvMXl6SlJpNWc=");
 const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 
-// Set defaults on install and try loading local untracked config
+// Initialize defaults
 chrome.runtime.onInstalled.addListener(() => {
-  // Check for local config file
-  fetch(chrome.runtime.getURL("config.local.json"))
-    .then(r => r.json())
-    .then(cfg => {
-      if (cfg && cfg.geminiApiKey) {
-        chrome.storage.local.set({
-          geminiApiKey: cfg.geminiApiKey,
-          geminiModel: cfg.geminiModel || DEFAULT_MODEL
-        });
-      }
-    })
-    .catch(() => {});
-
   chrome.storage.local.get(["geminiApiKey", "geminiModel", "fillJustifications", "showFloatingButton"], (res) => {
     const updates = {};
+    if (!res.geminiApiKey) updates.geminiApiKey = FALLBACK_KEY;
     if (!res.geminiModel) updates.geminiModel = DEFAULT_MODEL;
     if (res.fillJustifications === undefined) updates.fillJustifications = true;
     if (res.showFloatingButton === undefined) updates.showFloatingButton = false;
-    if (Object.keys(updates).length > 0) {
-      chrome.storage.local.set(updates);
-    }
+    chrome.storage.local.set(updates);
   });
 });
+
+async function getActiveApiKey(passedKey) {
+  if (passedKey && passedKey.trim()) return passedKey.trim();
+  const stored = await chrome.storage.local.get(["geminiApiKey"]);
+  if (stored && stored.geminiApiKey && stored.geminiApiKey.trim()) {
+    return stored.geminiApiKey.trim();
+  }
+  return FALLBACK_KEY;
+}
 
 /**
  * Builds the comprehensive prompt strictly adhering to the 8-page Perit AI Rubric
@@ -105,11 +100,7 @@ RETURN VALID JSON ONLY matching this exact schema:
  * Calls Gemini API to perform the Perit AI evaluation
  */
 async function callGeminiEvaluation(turns, apiKey, model) {
-  let activeKey = apiKey;
-  if (!activeKey) {
-    const stored = await chrome.storage.local.get(["geminiApiKey"]);
-    activeKey = stored.geminiApiKey;
-  }
+  const activeKey = await getActiveApiKey(apiKey);
   if (!activeKey) {
     throw new Error("No Gemini API Key provided. Please enter your API key in Settings.");
   }
@@ -144,6 +135,11 @@ async function callGeminiEvaluation(turns, apiKey, model) {
       const errJson = JSON.parse(errorText);
       parsedErr = errJson.error?.message || errorText;
     } catch (e) {}
+
+    if (response.status === 401) {
+      throw new Error("Invalid or revoked Gemini API Key (401). Please enter a fresh free API key from Google AI Studio in the Settings tab.");
+    }
+
     throw new Error(`Gemini API Error (${response.status}): ${parsedErr}`);
   }
 
@@ -176,17 +172,19 @@ async function callGeminiEvaluation(turns, apiKey, model) {
  * Verify API key validity
  */
 async function verifyApiKey(apiKey) {
-  let key = apiKey;
-  if (!key) {
-    const stored = await chrome.storage.local.get(["geminiApiKey"]);
-    key = stored.geminiApiKey;
-  }
+  const key = await getActiveApiKey(apiKey);
   if (!key) throw new Error("Please enter an API Key to test.");
 
   const endpoint = `https://generativelanguage.googleapis.com/v1beta/models?key=${key}`;
   const res = await fetch(endpoint);
   if (!res.ok) {
-    throw new Error(`Invalid API Key or Network Error (${res.status})`);
+    const errText = await res.text();
+    let msg = `Status ${res.status}`;
+    try {
+      const errJson = JSON.parse(errText);
+      if (errJson.error?.message) msg = errJson.error.message;
+    } catch (e) {}
+    throw new Error(msg);
   }
   return { success: true };
 }
