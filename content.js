@@ -10,16 +10,15 @@
   window.__foundryAutofillInitialized = true;
 
   // ----------------------------------------------------------
-  // Helper: Clean Justification Artifacts (PDF links, +1 tags)
+  // Helper: Clean Justification Artifacts (PDF links, +1 tags, chat notes)
   // ----------------------------------------------------------
   function cleanJustification(text) {
     if (!text) return "";
     return text
-      // Remove screenshot / pdf / image filenames (e.g. screencapture-foundry-...pdf)
-      .replace(/screencapture[^\n\r]*\.(pdf|png|jpg|jpeg)/gi, "")
-      .replace(/[a-zA-Z0-9_\-\.]+\.(pdf|png|jpg|jpeg)/gi, "")
+      // Remove any lines containing PDF/image filenames or screencapture URLs/citations
+      .replace(/(?:^|\r?\n).*?(?:s?creencapture|https?:\/\/|[a-zA-Z0-9_\-\.]+\.(?:pdf|png|jpg|jpeg)).*$/gim, "")
       // Remove trailing footnote tags like "+ 1", "+ 4"
-      .replace(/(?:^|\r?\n)\s*\+\s*\d+\s*/g, "\n")
+      .replace(/(?:^|\r?\n)\s*\+\s*\d+\s*$/gm, "")
       .trim();
   }
 
@@ -29,7 +28,7 @@
   function parseAnnotationText(text) {
     const turns = [];
 
-    // Match Turn headers like "Turn 1", "Turn 1 (0:00 - 0:13)", "TURN 1:"
+    // Match Turn headers like "Turn 1", "Turn 1 (0:00 – 0:13)", "TURN 1:"
     const turnHeaderRegex = /(?:^|\r?\n)\s*TURN\s+(\d+)\b/gi;
     const matches = [];
     let m;
@@ -52,8 +51,8 @@
         if (!catMatch) return null;
 
         const catStart = catMatch.index;
-        // Find where next category begins or end of block
-        const nextCatsRegex = /(?:^|\r?\n)\s*(?:Content|Prosody|Fluidity)\s*(?::|\r?\\n|$)/gi;
+        // Find where next category begins or end of block (single \n in regex literal)
+        const nextCatsRegex = /(?:^|\r?\n)\s*(?:Content|Prosody|Fluidity)\s*(?::|\r?\n|$)/gi;
         nextCatsRegex.lastIndex = catStart + catMatch[0].length;
         const nextMatch = nextCatsRegex.exec(block);
         const catEnd = nextMatch ? nextMatch.index : block.length;
