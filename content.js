@@ -1,6 +1,7 @@
 // ============================================================
 // Foundry Auto-Filler Content Script
 // Handles page interaction, form automation, checklist modal, and in-page UI
+// Supports multiple answer formats & auto-cleans citation artifacts
 // ============================================================
 
 (function () {
@@ -9,12 +10,26 @@
   window.__foundryAutofillInitialized = true;
 
   // ----------------------------------------------------------
-  // 1. Robust Index-Based Text Parsing Engine
+  // Helper: Clean Justification Artifacts (PDF links, +1 tags)
+  // ----------------------------------------------------------
+  function cleanJustification(text) {
+    if (!text) return "";
+    return text
+      // Remove screenshot / pdf / image filenames (e.g. screencapture-foundry-...pdf)
+      .replace(/screencapture[^\n\r]*\.(pdf|png|jpg|jpeg)/gi, "")
+      .replace(/[a-zA-Z0-9_\-\.]+\.(pdf|png|jpg|jpeg)/gi, "")
+      // Remove trailing footnote tags like "+ 1", "+ 4"
+      .replace(/(?:^|\r?\n)\s*\+\s*\d+\s*/g, "\n")
+      .trim();
+  }
+
+  // ----------------------------------------------------------
+  // 1. Universal Text Parsing Engine (Supports All Formats)
   // ----------------------------------------------------------
   function parseAnnotationText(text) {
     const turns = [];
 
-    // Find all Turn header line starts
+    // Match Turn headers like "Turn 1", "Turn 1 (0:00 - 0:13)", "TURN 1:"
     const turnHeaderRegex = /(?:^|\r?\n)\s*TURN\s+(\d+)\b/gi;
     const matches = [];
     let m;
@@ -31,30 +46,33 @@
       const block = text.slice(current.startIndex, nextStart);
 
       function extractSection(cat) {
-        const catRegex = new RegExp("(?:^|\\r?\\n)\\s*" + cat + "\\s*:", "i");
+        // Find where category begins: "Content:", "Content\n", "Content \n"
+        const catRegex = new RegExp("(?:^|\\r?\\n)\\s*" + cat + "\\s*(?::|\\r?\\n|$)", "i");
         const catMatch = block.match(catRegex);
         if (!catMatch) return null;
 
         const catStart = catMatch.index;
-        const nextCatsRegex = /(?:^|\r?\n)\s*(?:Content|Prosody|Fluidity)\s*:/gi;
+        // Find where next category begins or end of block
+        const nextCatsRegex = /(?:^|\r?\n)\s*(?:Content|Prosody|Fluidity)\s*(?::|\r?\\n|$)/gi;
         nextCatsRegex.lastIndex = catStart + catMatch[0].length;
         const nextMatch = nextCatsRegex.exec(block);
         const catEnd = nextMatch ? nextMatch.index : block.length;
 
         const sectionText = block.slice(catStart, catEnd);
 
-        // Score
-        const scoreMatch = sectionText.match(new RegExp(cat + "\\s*:\\s*(\\d+)", "i"));
+        // Score: matches "Content: 5", "Content: 5/5", "Score: 5", "Score: 1 (or 2...)"
+        const scoreMatch = sectionText.match(/(?:(?:Content|Prosody|Fluidity)\s*:\s*|Score\s*:\s*)(\d+)/i);
         const score = scoreMatch ? parseInt(scoreMatch[1], 10) : 5;
 
-        // Error Code
-        const errMatch = sectionText.match(/Error\\s*Code\\s*:\\s*([^\\n\\r]+)/i);
+        // Error Code: matches "Error Code: None", "Error Code: IGN / CTR"
+        const errMatch = sectionText.match(/Error\s*Code\s*:\s*([^\n\r]+)/i);
         let err = errMatch ? errMatch[1].trim() : "";
         if (err.toLowerCase() === "none") err = "";
 
         // Justification
         const justMatch = sectionText.match(/Justification\s*:\s*([\s\S]*)$/i);
-        const just = justMatch ? justMatch[1].trim() : "";
+        let just = justMatch ? justMatch[1].trim() : "";
+        just = cleanJustification(just);
 
         return { score, errorCode: err, justification: just };
       }
@@ -229,70 +247,81 @@
   }
 
   // ----------------------------------------------------------
-  // 6. Select Error Code (Select, Chips, or Dropdown)
+  // 6. Select Error Code (Select, Chips, or Dropdown - Supports Multiple Codes)
   // ----------------------------------------------------------
   async function applyErrorCode(container, errorCode) {
     if (!errorCode || errorCode.toUpperCase() === "NONE") return true;
     await new Promise(r => setTimeout(r, 120));
-    const code = errorCode.trim().toUpperCase();
 
-    // Option A: Native select element
-    const selects = Array.from(container.querySelectorAll("select"));
-    for (const sel of selects) {
-      for (const opt of sel.options) {
-        if (
-          opt.value.toUpperCase() === code ||
-          opt.textContent.toUpperCase().includes(code)
-        ) {
-          sel.value = opt.value;
-          sel.dispatchEvent(new Event("change", { bubbles: true }));
-          sel.dispatchEvent(new Event("input", { bubbles: true }));
-          return true;
+    // Split multiple codes (e.g. "IGN / CTR", "VOC / GLI / INT")
+    const codes = errorCode.split(/[\/,]/).map(c => c.trim().toUpperCase()).filter(Boolean);
+    if (codes.length === 0) return true;
+
+    let anySelected = false;
+
+    for (const code of codes) {
+      // Option A: Native select element
+      const selects = Array.from(container.querySelectorAll("select"));
+      for (const sel of selects) {
+        for (const opt of sel.options) {
+          if (
+            opt.value.toUpperCase() === code ||
+            opt.textContent.toUpperCase().includes(code)
+          ) {
+            sel.value = opt.value;
+            sel.dispatchEvent(new Event("change", { bubbles: true }));
+            sel.dispatchEvent(new Event("input", { bubbles: true }));
+            anySelected = true;
+            break;
+          }
+        }
+        if (anySelected) break;
+      }
+
+      // Option B: Clickable chips / pill buttons / badges
+      const clickables = Array.from(
+        container.querySelectorAll('button, [role="button"], span, div, label')
+      ).filter(el => {
+        if (el.children.length > 2) return false;
+        const txt = el.textContent.trim().toUpperCase();
+        return (
+          txt === code ||
+          txt.startsWith(code + " ") ||
+          txt.includes("(" + code + ")") ||
+          txt.endsWith(" - " + code)
+        );
+      });
+      if (clickables.length > 0) {
+        clickables[0].click();
+        clickables[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        anySelected = true;
+      }
+
+      // Option C: Custom Combobox or Dropdown trigger
+      if (!anySelected) {
+        const dropdownTrig = container.querySelector(
+          '[role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], button[class*="select"], div[class*="select"]'
+        );
+        if (dropdownTrig) {
+          dropdownTrig.click();
+          await new Promise(r => setTimeout(r, 150));
+          const options = Array.from(
+            document.querySelectorAll(
+              '[role="option"], [role="menuitem"], li, div[class*="option"]'
+            )
+          ).filter(el => {
+            const txt = el.textContent.trim().toUpperCase();
+            return txt === code || txt.startsWith(code + " ") || txt.includes("(" + code + ")");
+          });
+          if (options.length > 0) {
+            options[0].click();
+            anySelected = true;
+          }
         }
       }
     }
 
-    // Option B: Clickable chips / pill buttons / badges
-    const clickables = Array.from(
-      container.querySelectorAll('button, [role="button"], span, div, label')
-    ).filter(el => {
-      if (el.children.length > 2) return false;
-      const txt = el.textContent.trim().toUpperCase();
-      return (
-        txt === code ||
-        txt.startsWith(code + " ") ||
-        txt.includes("(" + code + ")") ||
-        txt.endsWith(" - " + code)
-      );
-    });
-    if (clickables.length > 0) {
-      clickables[0].click();
-      clickables[0].dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      return true;
-    }
-
-    // Option C: Custom Combobox or Dropdown trigger
-    const dropdownTrig = container.querySelector(
-      '[role="combobox"], [aria-haspopup="listbox"], [aria-haspopup="menu"], button[class*="select"], div[class*="select"]'
-    );
-    if (dropdownTrig) {
-      dropdownTrig.click();
-      await new Promise(r => setTimeout(r, 150));
-      const options = Array.from(
-        document.querySelectorAll(
-          '[role="option"], [role="menuitem"], li, div[class*="option"]'
-        )
-      ).filter(el => {
-        const txt = el.textContent.trim().toUpperCase();
-        return txt === code || txt.startsWith(code + " ") || txt.includes("(" + code + ")");
-      });
-      if (options.length > 0) {
-        options[0].click();
-        return true;
-      }
-    }
-
-    return false;
+    return anySelected;
   }
 
   // ----------------------------------------------------------
@@ -302,7 +331,7 @@
     logFn("Parsing text answers...");
     const turns = parseAnnotationText(text);
     if (!turns || turns.length === 0) {
-      const err = "No valid turns detected! Please verify format contains 'TURN 1', 'Content:', etc.";
+      const err = "No valid turns detected! Please verify format contains 'TURN 1', 'Content', etc.";
       logFn("❌ " + err);
       return { success: false, error: err };
     }
@@ -386,7 +415,7 @@
       await new Promise(r => setTimeout(r, 80));
     }
 
-    logFn(`🎉 SUCCESS! Completed ${filledCount} turns with justifications! Ready for submit.`);
+    logFn(`🎉 SUCCESS! Completed ${filledCount} turns with clean justifications! Ready for submit.`);
     return { success: true, count: filledCount };
   }
 
@@ -451,7 +480,7 @@
       </div>
       <div class="foundry-drawer-body">
         <div class="foundry-hint">Paste evaluation text (Turn 1 to 7) below:</div>
-        <textarea id="foundry-drawer-textarea" class="foundry-textarea" placeholder="File: s0_0317.wav&#10;TURN 1&#10;Content: 5/5&#10;Error Code: None&#10;Justification: ...&#10;Prosody: 4/5..."></textarea>
+        <textarea id="foundry-drawer-textarea" class="foundry-textarea" placeholder="Paste your evaluation answers here..."></textarea>
         
         <label class="foundry-checkbox-row">
           <input type="checkbox" id="foundry-drawer-fill-just" checked>
