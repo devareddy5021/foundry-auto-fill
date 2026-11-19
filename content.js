@@ -110,18 +110,22 @@
   }
 
   // ----------------------------------------------------------
-  // 3. Category Container Finder
+  // 3. Category Container Finder (Robust Parent Walker)
   // ----------------------------------------------------------
   function getCategoryContainer(textarea) {
     let curr = textarea.parentElement;
     while (curr && curr !== document.body) {
-      const textareas = curr.querySelectorAll("textarea");
+      // Find rating buttons (1 to 5)
       const buttons = Array.from(
-        curr.querySelectorAll('button, [role="button"], div, span')
-      ).filter(el => {
-        const txt = el.textContent.trim();
-        return ["1", "2", "3", "4", "5"].includes(txt) && el.children.length === 0;
+        curr.querySelectorAll('button, [role="button"], [role="radio"]')
+      ).filter(b => {
+        const txt = b.textContent.trim();
+        return /^[1-5](\D|$)/.test(txt) && !/speak|refine|discard|next|done/i.test(txt);
       });
+
+      const textareas = curr.querySelectorAll("textarea");
+
+      // Column container found if it has at least 5 score buttons and only 1 textarea
       if (buttons.length >= 5 && textareas.length === 1) {
         return curr;
       }
@@ -131,34 +135,81 @@
   }
 
   // ----------------------------------------------------------
-  // 4. Click Rating Button (1-5)
+  // 4. Click Rating Button (Supports Subtitles & Multiple Attributes)
   // ----------------------------------------------------------
   function clickRatingScore(container, score) {
     const scoreStr = String(score);
-    const elements = Array.from(
-      container.querySelectorAll('button, [role="button"], div, span')
-    ).filter(el => {
-      const txt = el.textContent.trim();
-      return txt === scoreStr && el.children.length === 0;
+
+    // 1. Gather all button candidates inside the column container
+    const allButtons = Array.from(
+      container.querySelectorAll('button, [role="button"], [role="radio"], div[class*="rating"], div[class*="button"]')
+    );
+
+    // Filter rating buttons (excludes action buttons like SPEAK, REFINE, DISCARD)
+    const ratingButtons = allButtons.filter(btn => {
+      const txt = btn.textContent.trim();
+      if (/speak|refine|discard|next|done|submit|cancel/i.test(txt)) return false;
+      const aria = btn.getAttribute("aria-label") || "";
+      const val = btn.getAttribute("value") || btn.getAttribute("data-value") || btn.getAttribute("data-score") || "";
+      return /^[1-5](\D|$)/.test(txt) || /^[1-5]$/.test(aria) || /^[1-5]$/.test(val);
     });
 
-    const best =
-      elements.find(
-        el =>
-          el.tagName === "BUTTON" ||
-          el.getAttribute("role") === "button" ||
-          el.className.toString().toLowerCase().includes("rating") ||
-          el.className.toString().toLowerCase().includes("btn")
-      ) || elements[0];
+    // 2. Find target button matching the score
+    let targetBtn = ratingButtons.find(btn => {
+      const txt = btn.textContent.trim();
+      const aria = btn.getAttribute("aria-label") || "";
+      const val = btn.getAttribute("value") || btn.getAttribute("data-value") || btn.getAttribute("data-score") || "";
 
-    if (best) {
-      best.focus();
-      best.click();
-      best.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-      best.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
-      best.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      // Exact match or starts with score (e.g. "5", "5\nVery satisfied", "5 Very satisfied")
+      const matchesTxt =
+        txt === scoreStr ||
+        txt.startsWith(scoreStr + "\n") ||
+        txt.startsWith(scoreStr + " ") ||
+        new RegExp(`^\\s*${score}\\b`).test(txt);
+
+      const matchesAria =
+        aria === scoreStr ||
+        aria.toLowerCase().includes(`rating ${score}`) ||
+        aria.toLowerCase().includes(`score ${score}`);
+
+      const matchesVal = val === scoreStr;
+
+      return matchesTxt || matchesAria || matchesVal;
+    });
+
+    // 3. Fallback by position: if exactly 5 rating buttons exist, index = score - 1
+    if (!targetBtn && ratingButtons.length === 5 && score >= 1 && score <= 5) {
+      targetBtn = ratingButtons[score - 1];
+    }
+
+    // 4. Fallback: Search preceding elements/siblings of textarea
+    if (!targetBtn) {
+      let prev = container.previousElementSibling;
+      while (prev && !targetBtn) {
+        const prevBtns = Array.from(prev.querySelectorAll('button, [role="button"]')).filter(b => {
+          const t = b.textContent.trim();
+          return /^[1-5](\D|$)/.test(t) && !/speak|refine/i.test(t);
+        });
+        if (prevBtns.length === 5) {
+          targetBtn = prevBtns[score - 1];
+        }
+        prev = prev.previousElementSibling;
+      }
+    }
+
+    // 5. Trigger click if found
+    if (targetBtn) {
+      const clickable = targetBtn.closest('button, [role="button"]') || targetBtn;
+      clickable.focus();
+      clickable.click();
+      clickable.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+      clickable.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+      clickable.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+      clickable.dispatchEvent(new Event("input", { bubbles: true }));
+      clickable.dispatchEvent(new Event("change", { bubbles: true }));
       return true;
     }
+
     return false;
   }
 
@@ -324,7 +375,7 @@
   }
 
   // ----------------------------------------------------------
-  // 7. Complete Automation Execution (Fills Justifications)
+  // 7. Complete Automation Execution (Fills Ratings & Justifications)
   // ----------------------------------------------------------
   async function fillAllTurns(text, fillJustifications = true, logFn = console.log) {
     logFn("Parsing text answers...");
@@ -367,8 +418,12 @@
       // 1. Content
       if (turn.content && contentTextareas[turnIdx]) {
         const ta = contentTextareas[turnIdx];
+        ta.scrollIntoView({ block: "center" });
         const container = getCategoryContainer(ta);
-        clickRatingScore(container, turn.content.score);
+        const clicked = clickRatingScore(container, turn.content.score);
+        if (clicked) {
+          logFn(`  ⭐ Content: ${turn.content.score}/5 clicked.`);
+        }
         await handleConfirmationModal(logFn);
         if (turn.content.errorCode) {
           await applyErrorCode(container, turn.content.errorCode);
@@ -376,14 +431,18 @@
         if (fillJustifications && turn.content.justification) {
           setReactInputValue(ta, turn.content.justification);
         }
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 60));
       }
 
       // 2. Prosody
       if (turn.prosody && prosodyTextareas[turnIdx]) {
         const ta = prosodyTextareas[turnIdx];
+        ta.scrollIntoView({ block: "center" });
         const container = getCategoryContainer(ta);
-        clickRatingScore(container, turn.prosody.score);
+        const clicked = clickRatingScore(container, turn.prosody.score);
+        if (clicked) {
+          logFn(`  ⭐ Prosody: ${turn.prosody.score}/5 clicked.`);
+        }
         await handleConfirmationModal(logFn);
         if (turn.prosody.errorCode) {
           await applyErrorCode(container, turn.prosody.errorCode);
@@ -391,14 +450,18 @@
         if (fillJustifications && turn.prosody.justification) {
           setReactInputValue(ta, turn.prosody.justification);
         }
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 60));
       }
 
       // 3. Fluidity
       if (turn.fluidity && fluidityTextareas[turnIdx]) {
         const ta = fluidityTextareas[turnIdx];
+        ta.scrollIntoView({ block: "center" });
         const container = getCategoryContainer(ta);
-        clickRatingScore(container, turn.fluidity.score);
+        const clicked = clickRatingScore(container, turn.fluidity.score);
+        if (clicked) {
+          logFn(`  ⭐ Fluidity: ${turn.fluidity.score}/5 clicked.`);
+        }
         await handleConfirmationModal(logFn);
         if (turn.fluidity.errorCode) {
           await applyErrorCode(container, turn.fluidity.errorCode);
@@ -406,7 +469,7 @@
         if (fillJustifications && turn.fluidity.justification) {
           setReactInputValue(ta, turn.fluidity.justification);
         }
-        await new Promise(r => setTimeout(r, 50));
+        await new Promise(r => setTimeout(r, 60));
       }
 
       filledCount++;
@@ -414,7 +477,7 @@
       await new Promise(r => setTimeout(r, 80));
     }
 
-    logFn(`🎉 SUCCESS! Completed ${filledCount} turns with clean justifications! Ready for submit.`);
+    logFn(`🎉 SUCCESS! Completed ${filledCount} turns with ratings & justifications! Ready for submit.`);
     return { success: true, count: filledCount };
   }
 
