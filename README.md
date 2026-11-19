@@ -1,50 +1,53 @@
-# Foundry Conversation Rating Auto-Filler (Chrome Extension)
+# Foundry Conversation Rating Auto-Filler & AI Evaluator (v2.0)
 
-A Chrome Extension (Manifest V3) that automates filling Content, Prosody, and Fluidity evaluation forms on Foundry.
-
-## How to Install in Google Chrome (3 Steps)
-
-1. Open Google Chrome and go to: `chrome://extensions/`
-2. In the top-right corner, toggle **Developer mode** to **ON**.
-3. In the top-left corner, click **Load unpacked** and select the folder:
-   `/home/user/Pictures/new_project`
-
-That's it! The extension is now installed.
+A powerful Chrome Extension (Manifest V3) that provides **end-to-end AI evaluation and 1-click form auto-filling** for Foundry / Perit AI conversation rating tasks.
 
 ---
 
-## How to Use
+## What's New in Version 2.0 🚀
 
-### Option 1: In-Page Floating Button
-1. Open your Foundry audio evaluation page.
-2. You will see a small floating **`⚡ Auto-Fill`** button in the bottom-right corner of the page.
-3. Click it to open the drawer.
-4. Paste your evaluation text (Turn 1 to 7) and click **`⚡ Fill Form Now`**.
-
-### Option 2: Chrome Toolbar Popup
-1. Click the puzzle icon (Extensions) in Chrome's top toolbar, and pin **Foundry Auto-Filler**.
-2. Click the extension icon.
-3. Paste your evaluation text and click **`⚡ Fill Current Page`**.
+- **🤖 1-Click AI Auto-Evaluator**:
+  - You no longer need to write or paste answers manually!
+  - Automatically scrapes conversation turns, timestamps, speech gaps, and pre-filled justifications directly from the active Foundry page.
+  - Consults Google Gemini AI using the official **Perit AI guidelines** (Content, Prosody, Fluidity).
+  - Generates strict 1-sentence quoted justifications and detects UI pre-filled traps (contradictions, ignored constraints).
+  - Automatically clicks rating buttons (1–5), confirms the 6-item checklist modal, selects error codes, and fills all justification textareas.
+- **▶️ Fast-Play Audio (4x Speed)**:
+  - Fulfills the Perit AI requirement ("Play at least 90% of each file's agent audio before submitting") in seconds.
+- **🛡️ Clean Browsing**:
+  - In-page floating button is hidden by default so other tabs (Google, WhatsApp, etc.) remain clean. Can be toggled in Settings if desired.
+- **⚙️ Integrated Gemini Key**:
+  - Pre-configured with your verified Gemini API key and high-speed `gemini-3.5-flash-lite` model.
 
 ---
 
-## Supported Format
-```text
-File: s0_0317.wav
-TURN 1
+## How to Install / Reload in Google Chrome
 
-Content: 5/5
-Error Code: None
-Justification: ...
+1. Open Google Chrome and navigate to: `chrome://extensions/`
+2. Ensure **Developer mode** (top-right toggle) is **ON**.
+3. If already installed:
+   - Find **Foundry Auto-Filler & AI Evaluator** and click the **🔄 Reload** icon.
+4. If installing for the first time:
+   - Click **Load unpacked** (top-left) and select this folder:
+     `/home/user/Pictures/new_project`
+5. Pin the extension to your Chrome toolbar for easy access.
 
-Prosody: 4/5
-Error Code: None
-Justification: ...
+---
 
-Fluidity: 5/5
-Error Code: None
-Justification: ...
+## How to Use on Foundry
 
-TURN 2
-...
-```
+1. Open your Foundry rating task page (`https://foundry.zyka.ai/workspace/conversation-rating/...`).
+2. *(Optional)* Click **`▶️ Fast-Play Audio (4x)`** to play the audio and satisfy the 90% audio rule.
+3. Click the extension icon in your Chrome toolbar and click:
+   **`⚡ Auto-Evaluate & Fill with AI`**
+4. Watch the live progress console as it:
+   - Extracts all turns and speech timing gaps.
+   - Evaluates each turn according to Perit AI rubric.
+   - Clicks rating scores, dismisses confirmation modals, selects error codes, and fills justifications.
+5. Review the turns and click **Submit conversation**!
+
+---
+
+## Fallback Manual Mode
+
+If you ever want to paste custom answers manually, switch to the **📋 Manual** tab in the popup, paste your text, and click **`⚡ Fill Current Page`**.
